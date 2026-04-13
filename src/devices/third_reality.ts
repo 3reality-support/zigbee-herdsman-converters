@@ -1165,7 +1165,7 @@ export const definitions: DefinitionWithExtend[] = [
                 name: "genBasic",
                 ID: 0x0000,
                 attributes: {
-                    redLedBrightness: {name: "redLedBrightness", ID: 0xff01, type: 0x20, write: true, min: 0, max: 100},
+                    redLedBrightness: {name: "redLedBrightness", ID: 0xff01, type: Zcl.DataType.UINT8, write: true, min: 0, max: 100},
                 },
                 commands: {},
                 commandsResponse: {},
