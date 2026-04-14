@@ -98,6 +98,7 @@ interface ThirdPlug {
         resetTotalEnergy: number;
         countdownToTurnOff: number;
         countdownToTurnOn: number;
+        redLedBrightness: number;
     };
     commands: never;
     commandResponses: never;
@@ -1232,7 +1233,7 @@ export const definitions: DefinitionWithExtend[] = [
                 description: "(OFF-ON)",
                 access: "ALL",
             }),
-            m.numeric({
+            m.numeric<"genBasic", ThirdPlug>({
                 name: "red_led_brightness",
                 unit: "%",
                 valueMin: 0,
