@@ -59,6 +59,10 @@ const {
     lumiMultiClick,
     lumiPreventLeave,
     lumiExternalSensor,
+    w600ExternalTempSensor,
+    w600PresetTemperatureTable,
+    w600Schedule,
+    w600Thermostat,
     lumiReadPositionOnReport,
 } = lumi.modernExtend;
 
@@ -2460,6 +2464,155 @@ export const definitions: DefinitionWithExtend[] = [
             lumiBattery({voltageToPercentage: {min: 2850, max: 3000}}),
             lumiZigbeeOTA(),
             m.quirkCheckinInterval("1_HOUR"),
+        ],
+    },
+    {
+        zigbeeModel: ["lumi.vibration.agl002"],
+        model: "DWZTCGQ11LM",
+        vendor: "Aqara",
+        description: "Multi-state sensor P100",
+        extend: [
+            m.quirkCheckinInterval("1_HOUR"),
+            lumi.lumiModernExtend.addManuSpecificLumiCluster(),
+            lumi.lumiModernExtend.lumiPreventReset(),
+            lumi.lumiModernExtend.lumiBattery({
+                voltageAttribute: 0x17,
+                percentageAttribute: 0x18,
+            }),
+            lumi.lumiModernExtend.lumiZigbeeOTA(),
+            m.enumLookup({
+                name: "device_mode",
+                cluster: "manuSpecificLumi",
+                attribute: {ID: 0x0116, type: 0x20},
+                lookup: {door_window: 3, object: 5},
+                description: "Device operating mode",
+                access: "STATE_SET",
+                entityCategory: "config",
+                zigbeeCommandOptions: {manufacturerCode},
+            }),
+            m.enumLookup({
+                name: "door_window_type",
+                cluster: "manuSpecificLumi",
+                attribute: {ID: 0x01eb, type: 0x20},
+                lookup: {casement_window: 1, hopper_window: 2, composite_window: 3, hinged_door: 4},
+                description: "Door/window type (applies when device_mode = door window)",
+                access: "STATE_SET",
+                entityCategory: "config",
+                zigbeeCommandOptions: {manufacturerCode},
+            }),
+            m.numeric({
+                name: "sensitivity",
+                cluster: "manuSpecificLumi",
+                attribute: {ID: 0x010c, type: 0x20},
+                valueMin: 1,
+                valueMax: 10,
+                description: "Detection sensitivity (1 = low, 10 = high)",
+                access: "STATE_SET",
+                entityCategory: "config",
+                zigbeeCommandOptions: {manufacturerCode},
+            }),
+            m.numeric({
+                name: "report_interval",
+                cluster: "manuSpecificLumi",
+                attribute: {ID: 0x01ec, type: 0x23},
+                unit: "s",
+                valueMin: 5,
+                valueMax: 300,
+                description: "Reporting interval in seconds",
+                access: "STATE_SET",
+                entityCategory: "config",
+                zigbeeCommandOptions: {manufacturerCode},
+            }),
+            m.binary({
+                name: "orientation_detection",
+                cluster: "manuSpecificLumi",
+                attribute: {ID: 0x01f0, type: 0x10},
+                valueOn: ["ON", 1],
+                valueOff: ["OFF", 0],
+                description: "Enable orientation event detection",
+                access: "STATE_SET",
+                zigbeeCommandOptions: {manufacturerCode},
+            }),
+            m.binary({
+                name: "movement_detection",
+                cluster: "manuSpecificLumi",
+                attribute: {ID: 0x01ed, type: 0x10},
+                valueOn: ["ON", 1],
+                valueOff: ["OFF", 0],
+                description: "Enable movement event detection",
+                access: "STATE_SET",
+                zigbeeCommandOptions: {manufacturerCode},
+            }),
+            m.binary({
+                name: "fall_detection",
+                cluster: "manuSpecificLumi",
+                attribute: {ID: 0x01d8, type: 0x10},
+                valueOn: ["ON", 1],
+                valueOff: ["OFF", 0],
+                description: "Enable fall event detection",
+                access: "STATE_SET",
+                zigbeeCommandOptions: {manufacturerCode},
+            }),
+            m.binary({
+                name: "vibration_detection",
+                cluster: "manuSpecificLumi",
+                attribute: {ID: 0x0107, type: 0x10},
+                valueOn: ["ON", 1],
+                valueOff: ["OFF", 0],
+                description: "Enable vibration event detection",
+                access: "STATE_SET",
+                zigbeeCommandOptions: {manufacturerCode},
+            }),
+            m.binary({
+                name: "triple_tap_detection",
+                cluster: "manuSpecificLumi",
+                attribute: {ID: 0x01ef, type: 0x10},
+                valueOn: ["ON", 1],
+                valueOff: ["OFF", 0],
+                description: "Enable triple-tap event detection",
+                access: "STATE_SET",
+                zigbeeCommandOptions: {manufacturerCode},
+            }),
+            m.enumLookup({
+                name: "orientation",
+                cluster: "manuSpecificLumi",
+                attribute: {ID: 0x01f1, type: 0x20},
+                lookup: {face_up: 1, face_down: 2, vertical: 3, tilt: 4},
+                description: "Last reported orientation (relevant when action = orientation)",
+                access: "STATE",
+                zigbeeCommandOptions: {manufacturerCode},
+            }),
+            // 0x01f3 fires true on every detection but never resets — no signal beyond `action`, not exposed.
+            m.actionEnumLookup({
+                cluster: "closuresDoorLock",
+                attribute: {ID: 0x0055, type: 0x21},
+                actionLookup: {
+                    triple_tap: 0,
+                    movement: 1,
+                    vibration: 2,
+                    orientation: 3,
+                    fall: 4,
+                },
+            }),
+            m.binary({
+                name: "contact",
+                cluster: "genOnOff",
+                attribute: "onOff",
+                valueOn: [false, 1],
+                valueOff: [true, 0],
+                description: "Door/window state (door/window mode only)",
+                access: "STATE",
+            }),
+            m.enumLookup({
+                name: "device_posture",
+                cluster: "manuSpecificLumi",
+                attribute: {ID: 0x01ee, type: 0x20},
+                lookup: {normal: 1, abnormal: 2},
+                description: "Mounting orientation check — 'abnormal' when the sensor is incorrectly installed or needs calibration",
+                access: "STATE",
+                entityCategory: "diagnostic",
+                zigbeeCommandOptions: {manufacturerCode},
+            }),
         ],
     },
     {
@@ -5396,20 +5549,36 @@ export const definitions: DefinitionWithExtend[] = [
         model: "WT-A03E",
         vendor: "Aqara",
         description: "Radiator thermostat W600",
+        meta: {
+            overrideHaDiscoveryPayload: (payload) => {
+                if (payload.mode_command_topic?.endsWith("/system_mode")) {
+                    payload.mode_state_template =
+                        "{% if value_json is defined and value_json.system_mode is defined and value_json.system_mode in ['off', 'heat', 'auto'] %}" +
+                        "{{ value_json.system_mode }}" +
+                        "{% else %}off{% endif %}";
+                    payload.preset_mode_value_template =
+                        "{% if value_json is defined and value_json.preset is defined and value_json.preset in ['home', 'away', 'sleep', 'vacation', 'wind_down'] %}" +
+                        "{{ value_json.preset }}" +
+                        "{% else %}none{% endif %}";
+                    payload.temperature_state_template =
+                        "{% if value_json is defined and value_json.occupied_heating_setpoint is defined and value_json.occupied_heating_setpoint is not none %}" +
+                        "{{ value_json.occupied_heating_setpoint }}" +
+                        "{% else %}None{% endif %}";
+                    payload.current_temperature_template =
+                        "{% if value_json is defined and value_json.local_temperature is defined and value_json.local_temperature is not none %}" +
+                        "{{ value_json.local_temperature }}" +
+                        "{% else %}None{% endif %}";
+                }
+
+                if (typeof payload.value_template === "string" && payload.value_template.includes("value_json.override_active")) {
+                    payload.icon = "mdi:cursor-pointer";
+                }
+            },
+        },
         extend: [
             lumi.modernExtend.addManuSpecificLumiCluster(),
-            m.thermostat({
-                setpoints: {
-                    values: {occupiedHeatingSetpoint: {min: 5, max: 30, step: 0.5}},
-                },
-                localTemperatureCalibration: {values: {min: -5, max: 5, step: 0.1}},
-                temperatureSetpointHold: true,
-                temperatureSetpointHoldDuration: true,
-                setpointsLimit: {
-                    maxHeatSetpointLimit: {min: 5, max: 30, step: 0.5},
-                    minHeatSetpointLimit: {min: 5, max: 30, step: 0.5},
-                },
-            }),
+            w600Thermostat(),
+            w600ExternalTempSensor(),
             m.enumLookup<"manuSpecificLumi", ManuSpecificLumi>({
                 name: "calibrate",
                 lookup: {start: 1},
@@ -5426,16 +5595,6 @@ export const definitions: DefinitionWithExtend[] = [
                 attribute: {ID: 0x027b, type: Zcl.DataType.UINT8},
                 description: "State of calibrate",
                 access: "STATE_GET",
-                zigbeeCommandOptions: {manufacturerCode},
-            }),
-            m.binary<"manuSpecificLumi", ManuSpecificLumi>({
-                name: "state",
-                valueOn: ["ON", 1],
-                valueOff: ["OFF", 0],
-                cluster: "manuSpecificLumi",
-                attribute: {ID: 0x0271, type: 0x20},
-                description: "Enabling termostat",
-                access: "ALL",
                 zigbeeCommandOptions: {manufacturerCode},
             }),
             m.binary<"manuSpecificLumi", ManuSpecificLumi>({
@@ -5458,16 +5617,7 @@ export const definitions: DefinitionWithExtend[] = [
                 access: "ALL",
                 zigbeeCommandOptions: {manufacturerCode},
             }),
-            m.binary<"manuSpecificLumi", ManuSpecificLumi>({
-                name: "helper",
-                valueOn: ["ON", 1],
-                valueOff: ["OFF", 0],
-                cluster: "manuSpecificLumi",
-                attribute: {ID: 0x027d, type: 0x20},
-                description: "Schedule helper",
-                access: "ALL",
-                zigbeeCommandOptions: {manufacturerCode},
-            }),
+            w600Schedule(),
             m.binary<"manuSpecificLumi", ManuSpecificLumi>({
                 name: "window_detection",
                 valueOn: ["ON", 1],
@@ -5489,17 +5639,20 @@ export const definitions: DefinitionWithExtend[] = [
                 zigbeeCommandOptions: {manufacturerCode},
             }),
             m.numeric<"manuSpecificLumi", ManuSpecificLumi>({
-                name: "away_preset_temperature",
-                valueMin: 0,
-                valueMax: 30,
+                name: "anti_freeze_temperature",
+                valueMin: 5,
+                valueMax: 15,
                 valueStep: 0.5,
                 scale: 100,
                 unit: "°C",
                 cluster: "manuSpecificLumi",
                 attribute: {ID: 0x0279, type: Zcl.DataType.UINT32},
-                description: "Away preset temperature",
+                description:
+                    "Minimum temperature limit for frost protection. Turns the thermostat on regardless of setpoint if the temperature drops below this.",
+                entityCategory: "config",
                 zigbeeCommandOptions: {manufacturerCode},
             }),
+            w600PresetTemperatureTable(),
             m.numeric<"manuSpecificLumi", ManuSpecificLumi>({
                 name: "position",
                 valueMin: 0,
@@ -5635,7 +5788,7 @@ export const definitions: DefinitionWithExtend[] = [
             lumi.lumiModernExtend.lumiBattery({
                 voltageToPercentage: {min: 2850, max: 3000},
                 voltageAttribute: 0x0017, // Attribute: 23
-                //percentageAtrribute: 0x0018 // Attribute: 24 // TODO: Should confirm to be sure
+                //percentageAttribute: 0x0018 // Attribute: 24 // TODO: Should confirm to be sure
             }),
             lumi.lumiModernExtend.fp1ePresence(),
             lumi.lumiModernExtend.fp300PIRDetection(),
